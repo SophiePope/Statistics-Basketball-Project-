@@ -1,0 +1,138 @@
+---
+title: "STAT 345 Midterm Project"
+font: 12pt
+date: "Due March 29"
+output:
+  word_document: default
+---
+
+> "Our offense is like the Pythagorean Theorem. There is no answer!", _Shaquille O'Neal_
+
+```{r, setup, include=FALSE}
+library(devtools)
+devtools::install_github("abresler/nbastatR", force = TRUE)
+```
+
+
+```{r include=FALSE}
+library(nbastatR) #for Nba data
+library(ggplot2) #to create ggplots
+library(ggpubr) #enhancing ggplots
+library(png) #working with the png file for the basketball court
+
+
+Sys.setenv("VROOM_CONNECTION_SIZE" = 9238893) 
+      #adjusting memory to make nbastatR run smoothly
+image <- readPNG("bbhalfcourt2.png")
+      #read in the basketball court image
+timberwolves_colors <- c("Made Shot" = "blue", "Missed Shot" = "limegreen")
+      #assigning Timberwolves colors to made and missed shots
+shotgraph_timberwolves <- function(year) {
+      #define a function to create shot graphs for the Timberwolves with x being season wanted
+      #input a year
+      #output is a shot graph from shots taken during that year
+  shots <- teams_shots(teams = "Minnesota Timberwolves", seasons = year)
+      #retrieve shot data for specified season
+  shots$isShotMade <- ifelse(shots$isShotMade, 1, 0)
+  shots$isShotAttempted <- ifelse(shots$isShotAttempted, 1, 0)
+  #turning true and falses into 1s and 0s
+  shotgg <- ggplot(data = shots, aes(x = locationX, y = locationY))
+      #create a ggplot for shots 
+  shotgraph <- shotgg + 
+            annotation_raster(image, xmin = -250, xmax = 250, ymin = -45, ymax = 890) +
+                #adjust image to fit with the coordinates
+            geom_point(aes(color = typeEvent), alpha = .3) +
+                #add shots to ggplot and plot with typeEvent(made or missed shots)
+            theme_void() +
+                #remove grid lines and background
+            scale_color_manual(values = timberwolves_colors) +
+                #set Timberwolves colors to shotType
+            labs(title = paste(year,"Timberwolves Shots"), color = "Shot Result") 
+                #add plot title top include year(x) and "Shot result" title to the legend
+  print(shotgraph)
+        #print plot
+}
+shotPercentage <- function(shotsdata) {
+  #input data set of shot data
+  #output and purpose is creating a subset of shot data including percentage of shots made by spot on court
+  ShotSummary <- aggregate(cbind(isShotMade, isShotAttempted) ~zoneBasic, data = shotsdata, FUN = sum)
+  #creating a subset of shot data including the sum of shots made and attempted in each zone
+  ShotSummary$ShotPercentage <- with(ShotSummary, (isShotMade/isShotAttempted) * 100)
+  #adding a column for shot percentage
+  print(ShotSummary)
+}
+
+for(i in 2015:2020) {
+    shotsforpercent <- teams_shots(teams = "Minnesota Timberwolves", seasons = i)
+    shotPercentage(shotsforpercent)
+    #for loop to find shot percentage data of specified years
+}
+```
+
+```{r warning=FALSE, echo=FALSE}
+for(i in 2015:2020) {
+  shotgraph_timberwolves(i)
+  #for loop to include shot graphs of specified years
+}
+
+```
+- Each graph shows every shot taken and where on a basketball court in a single Timberwolves season
+- Blue shots mean they were successful
+- Green shots mean the person missed
+
+The data included x and Y coordinators of each shot where the last number was a decimal place for example if the Y location was 273 and the X location -245 the ball would have been shot 27.3 feet from the baseline closest to the basket shooting at and 24.5 feet to the left (because of the negative) of the basket. After deciphering what these X and Y coordinates mean, I was able to insert an image of a basketball court underneath the data points to visualize where each shot was taken from. I added blue coloring to shots that were made and green for shots that were missed. I looked specifically at the years 2015 to 2020 and calculated data from the percentage of shots made in each zone by year, but by swapping the years specified in the for loop we can easily look at other years. I also created a code to create data sets that include the percentage of shots made out of attempted in each zone. From these data sets, I found the percentage of shots made above the three-point line from 2015 to 2020 respectively are 32.5, 32.7, 33.7, 34.7, 34.2, and 33.8 percent. I found the percentage of shots made in the backcourt from 2015 to 2020 respectively are 0,0,0,0,0,9.09 percent. From this, we can conclude shots taken in the backcourt are not very successful compared to other shots. The percentage of shots made in the paint (Non-Ra) from 2015 to 2020 respectively to be 37.7, 42.5, 43.7, 44.8, 39.3, 35.1 percent. The percentage of shots made in the left corner for three points from 2015 to 2020 respectively are 36.0, 38.3, 38.5, 38.4, 38.9 percent. The percentage of shots made in the right corner for three points from 2015 to 2020 respectively are 37.1, 38.2, 39.2, 41.8, 37.7, and 33.2 percent. From this, there is a similarity in the percentage of shots made in the right and left corners. I also found the percentage of shots made in mid-range from 2015 to 2020 respectively 37.4, 38.5, 40.0, 40.3, 39.7, and 38.2 percent. The percentage of shots made in the restricted area from 2015 to 2020 respectively are 59.8, 63.7, 65.9, 62.9, and 62.2 percent. The restricted area had the highest percentage of shots made every year.
+```{r warning=FALSE, echo=FALSE}
+shotPercentagegame <- function(shots_data) {
+  #Input a data set of shot information
+  #Output and purpose is a data set that creates a column for percentages of shots per game
+  shots_data$isShotMade <- ifelse(shots_data$isShotMade, 1, 0)
+  shots_data$isShotAttempted <- ifelse(shots_data$isShotAttempted, 1, 0)
+  #Changing true and falses to 0 and 1 
+  shot_summary <- aggregate(cbind(isShotMade, isShotAttempted) ~idGame, data = shots_data, FUN = sum)
+  #Create a subset of the sum of isShotMade isShotAttempted by idGame
+  shot_summary$ShotPercentagegame <- with(shot_summary, (isShotMade/isShotAttempted) * 100)
+  #Add a column for the percent made out of attempted
+  return(shot_summary)
+}
+gameshotresults <- function(year) {
+  #input a year
+  #output and purpose to create a data set that joins game by game data and shot information
+  games_data <- game_logs(year)
+  timberwolvesdata <-subset(games_data, idTeam == 1610612750)
+  #accessing game data from the specified year for the timberwolves
+  shots2 <- teams_shots(teams = "Minnesota Timberwolves", seasons = year)
+  shots2 <-shotPercentagegame(shots2)
+  #accessing the shot percentage data for specified year
+  joined_data <- merge(shots2, timberwolvesdata, by = c("idGame"), no.dups = TRUE, all = FALSE)
+  #joining shot and game data into one data set by idGame
+  joined_data <- unique(joined_data)
+  #deleting all repeated rows
+  return(joined_data)
+}
+ShotpercentagePlot <- function(year) {
+  # Input year 
+  #output and purpose create a plot that shows shot percentage game by game and outcome
+  gameshots <- gameshotresults(year)
+  #inserting joined shot and game data set for year 
+  ggplot(gameshots, aes(x = numberGameTeamSeason, y = ShotPercentagegame)) +
+    geom_line() +
+    geom_point(aes(color = outcomeGame)) +
+    labs(x = "Game Number", 
+         y = "Made Shots Percentage",
+         title = paste("Percent of Shots Made Each Game", year), 
+         color = "Game Outcome") +
+    geom_smooth(se = FALSE)
+  ##creating a ggplot with game number on x-axis and shot percentage on y-axis
+}
+for(i in 2015:2020) {
+    print(ShotpercentagePlot(i))
+    #for loop to plot specified years shot percentage by game plot
+}
+```
+This plot shows the percentage of shots made out of attempted as a season progresses. The red dots are games lost, and the blue dots are games won. The blue line through the graph is the line of best fit. Looking at this line and comparing them between years, we can see general trends in shot percentage as seasons progress.
+
+  
+  
+  
+
+
